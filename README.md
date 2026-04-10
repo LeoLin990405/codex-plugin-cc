@@ -1,56 +1,50 @@
-# Claude Code Multi-Model Plugin Marketplace
+# CN-CC: Chinese Model Backends for Claude Code
 
-> Fork of [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) — extended with Chinese AI model backend routing.
+Route tasks from Claude Code to 6 Chinese AI model backends. Each backend runs as an isolated Claude Code instance with its own API provider.
 
-A plugin marketplace for Claude Code that brings **multi-model delegation** to your workflow:
+> Inspired by [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) — the plugin architecture that made multi-model delegation in Claude Code possible. Thank you, OpenAI.
 
-| Plugin | Models | Use Case |
-|--------|--------|----------|
-| **codex** | GPT-5.4, GPT-5.3-spark | Code review, task delegation, rescue |
-| **cn** | Kimi, Qwen, GLM, Doubao, StepFun, MiniMax | Chinese text, SQL, long docs, math |
+## Models
 
-## Quick Start
+| Model | Backend | Strength | Command |
+|-------|---------|----------|---------|
+| **Doubao** | doubao-seed-code-pro | General Chinese coding (default) | `/cn:doubao` |
+| **Qwen** | qwen3.5-plus | SQL / Alibaba ecosystem | `/cn:qwen` |
+| **Kimi** | kimi-k2.5 | Long context (128K) | `/cn:kimi` |
+| **GLM** | glm-4.7 | Reasoning / Chinese understanding | `/cn:glm` |
+| **StepFun** | step-3.5-flash | Math / logic | `/cn:stepfun` |
+| **MiniMax** | MiniMax-M2.7-highspeed | High-speed inference | `/cn:minimax` |
+
+## Install
 
 ```bash
-# Add the marketplace
 /plugin marketplace add LeoLin990405/codex-plugin-cc
-
-# Install both plugins
-/plugin install codex@leo-cc-plugins
-/plugin install cn@leo-cc-plugins
-
-# Reload
+/plugin install cn@cn-cc
 /reload-plugins
-
-# Check status
-/codex:setup
 /cn:setup
 ```
 
-## CN Models Plugin
+Or add to `~/.claude/settings.json`:
 
-Route tasks to 6 Chinese AI model backends, each running as an isolated Claude Code instance with a different API provider.
+```json
+{
+  "enabledPlugins": {
+    "cn@cn-cc": true
+  },
+  "extraKnownMarketplaces": {
+    "cn-cc": {
+      "source": {
+        "source": "github",
+        "repo": "LeoLin990405/codex-plugin-cc"
+      }
+    }
+  }
+}
+```
 
-### Prerequisites
+## Usage
 
-You need the `cc-*` wrapper scripts in `~/bin/` and corresponding API keys:
-
-| Script | Model | API Key Env Var |
-|--------|-------|-----------------|
-| `cc-doubao` | doubao-seed-code-pro | `ARK_API_KEY` |
-| `cc-qwen` | qwen3.5-plus | `DASHSCOPE_API_KEY` |
-| `cc-kimi` | kimi-k2.5 | `KIMI_API_KEY` |
-| `cc-glm` | glm-4.7 | `GLM_API_KEY` |
-| `cc-stepfun` | step-3.5-flash | `STEPFUN_API_KEY` |
-| `cc-minimax` | MiniMax-M2.7-highspeed | `MINIMAX_API_KEY` |
-
-Each script launches Claude Code with a custom `ANTHROPIC_BASE_URL` and isolated `HOME` directory.
-
-### Commands
-
-#### `/cn:setup`
-
-Check availability of all 6 backends:
+### Check backends
 
 ```bash
 /cn:setup
@@ -67,122 +61,122 @@ CN Models Setup — 6/6 available
   ✓ minimax  MiniMax (M2.7-highspeed)            2.1.98 (Claude Code)
 ```
 
-#### `/cn:ask <prompt>`
-
-Intelligently route a task to the best backend based on content:
+### Smart routing
 
 ```bash
-/cn:ask 帮我写一个 Doris 数据仓库的 ETL SQL    # → routes to Qwen
-/cn:ask 分析这篇 8 万字的研究报告                # → routes to Kimi
-/cn:ask 证明这个不等式                           # → routes to StepFun
+/cn:ask 帮我写一个 Doris 数据仓库的 ETL SQL    # → Qwen
+/cn:ask 分析这篇 8 万字的研究报告                # → Kimi
+/cn:ask 证明这个不等式                           # → StepFun
+/cn:ask 写一个 Python 爬虫                       # → Doubao
 ```
 
-#### Direct Model Commands
+The `cn-dispatch` agent reads task signals and picks the best model:
 
-Skip routing and go straight to a specific model:
+| Signal | Routes to | Why |
+|--------|-----------|-----|
+| SQL / Doris / ADB / PolarDB | Qwen | Alibaba ecosystem native |
+| Long text > 50K tokens | Kimi | 128K context window |
+| Math / proofs / logic | StepFun | Math specialist |
+| Deep reasoning / Chinese NLU | GLM | Strong Chinese reasoning |
+| Quick / lightweight tasks | MiniMax | Lowest latency |
+| General Chinese coding | Doubao | Best all-round (default) |
+
+### Direct commands
 
 ```bash
-/cn:kimi <prompt>      # Long context (128K)
-/cn:qwen <prompt>      # SQL / Alibaba ecosystem
-/cn:glm <prompt>       # Reasoning / Chinese understanding
-/cn:doubao <prompt>    # General Chinese coding (default)
+/cn:kimi <prompt>      # Long context
+/cn:qwen <prompt>      # SQL / Alibaba
+/cn:glm <prompt>       # Reasoning
+/cn:doubao <prompt>    # General coding
 /cn:stepfun <prompt>   # Math / logic
-/cn:minimax <prompt>   # High-speed inference
+/cn:minimax <prompt>   # High-speed
 ```
 
-### Routing Logic
+### Auto-dispatch
 
-The `cn-dispatch` agent auto-selects models based on task signals:
+The `cn-dispatch` agent is also triggered automatically by Claude when it detects a task that would benefit from a Chinese model backend. No slash command needed.
 
-| Signal | Model | Why |
-|--------|-------|-----|
-| SQL / Doris / ADB / PolarDB | **qwen** | Alibaba ecosystem native |
-| Long text > 50K tokens | **kimi** | 128K context window |
-| Math / proofs / logic | **stepfun** | Math specialist |
-| Deep reasoning / Chinese NLU | **glm** | Strong Chinese reasoning |
-| Quick / lightweight tasks | **minimax** | Lowest latency |
-| General Chinese coding | **doubao** | Best all-round (default) |
-
-### Architecture
+## Architecture
 
 ```
-Claude Code (main session)
+Claude Code (main session, Claude Opus/Sonnet)
   │
-  ├── /cn:ask "task"
-  │     └── cn-dispatch agent
-  │           ├── reads cn-routing skill → picks model
-  │           └── Bash: node cn-companion.mjs task --model <name> "prompt"
-  │                 └── cc-<name> -p "prompt" --max-turns 1
-  │                       └── isolated CC instance → API provider
+  ├─ /cn:ask "prompt"           ← user-triggered smart routing
+  │    └─ cn-dispatch agent
+  │         ├─ cn-routing skill → selects model
+  │         └─ cn-companion.mjs task --model <name> "prompt"
+  │              └─ cc-<name> -p "prompt" --max-turns 1
+  │                   └─ isolated CC instance → provider API
   │
-  ├── /cn:kimi "task"     ← direct, skips routing
-  │     └── cn-companion.mjs task --model kimi "prompt"
+  ├─ /cn:kimi "prompt"          ← user-triggered direct
+  │    └─ cn-companion.mjs task --model kimi "prompt"
   │
-  └── cn-dispatch agent   ← auto-triggered by Claude
-        └── (same as /cn:ask flow)
+  └─ cn-dispatch agent          ← auto-triggered by Claude
+       └─ (same flow as /cn:ask)
 ```
 
-## Codex Plugin
+## Prerequisites
 
-The original [Codex plugin by OpenAI](https://github.com/openai/codex-plugin-cc) — kept intact from upstream.
+### CC wrapper scripts
 
-### Commands
-
-- `/codex:review` — Read-only Codex code review
-- `/codex:adversarial-review` — Steerable challenge review
-- `/codex:rescue` — Delegate tasks to Codex (GPT-5.4)
-- `/codex:status` — Check background job progress
-- `/codex:result` — View finished job output
-- `/codex:cancel` — Cancel active background job
-- `/codex:setup` — Check Codex installation and auth
-
-See the [original README](https://github.com/openai/codex-plugin-cc#readme) for full Codex documentation.
-
-## Configuration
-
-### settings.json
-
-To use this marketplace, add to your Claude Code `settings.json`:
-
-```json
-{
-  "enabledPlugins": {
-    "codex@leo-cc-plugins": true,
-    "cn@leo-cc-plugins": true
-  },
-  "extraKnownMarketplaces": {
-    "leo-cc-plugins": {
-      "source": {
-        "source": "github",
-        "repo": "LeoLin990405/codex-plugin-cc"
-      }
-    }
-  }
-}
-```
-
-### CC Wrapper Script Template
-
-Each `~/bin/cc-*` script follows this pattern:
+Each model needs a wrapper script in `~/bin/`:
 
 ```bash
 #!/usr/bin/env bash
+# ~/bin/cc-<provider>
 REAL_HOME="$HOME"
 export HOME="$REAL_HOME/.claude-envs/<provider>"
 mkdir -p "$HOME"
 
-export ANTHROPIC_BASE_URL="<provider-api-url>"
+export ANTHROPIC_BASE_URL="<provider-api-endpoint>"
 export ANTHROPIC_AUTH_TOKEN="$<PROVIDER_API_KEY>"
-export ANTHROPIC_MODEL="<model-name>"
+export ANTHROPIC_MODEL="<model-id>"
 export API_TIMEOUT_MS="3000000"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"
 
-exec /Users/leo/.local/bin/claude "$@"
+exec claude "$@"
 ```
+
+### API keys
+
+Set these environment variables (e.g. in `~/.zshrc`):
+
+```bash
+export ARK_API_KEY="..."        # Doubao (Volcengine)
+export DASHSCOPE_API_KEY="..."  # Qwen (Alibaba)
+export KIMI_API_KEY="..."       # Kimi (Moonshot)
+export GLM_API_KEY="..."        # GLM (Zhipu)
+export STEPFUN_API_KEY="..."    # StepFun
+export MINIMAX_API_KEY="..."    # MiniMax
+```
+
+## Plugin Structure
+
+```
+plugins/cn/
+├── agents/
+│   └── cn-dispatch.md          # Smart routing agent
+├── commands/
+│   ├── setup.md                # /cn:setup
+│   ├── ask.md                  # /cn:ask (smart routing)
+│   ├── status.md               # /cn:status
+│   ├── doubao.md               # /cn:doubao
+│   ├── qwen.md                 # /cn:qwen
+│   ├── kimi.md                 # /cn:kimi
+│   ├── glm.md                  # /cn:glm
+│   ├── stepfun.md              # /cn:stepfun
+│   └── minimax.md              # /cn:minimax
+├── skills/
+│   ├── cn-routing/SKILL.md     # Model selection decision matrix
+│   └── cn-result-handling/SKILL.md  # Output formatting rules
+└── scripts/
+    └── cn-companion.mjs        # Core runtime (~180 lines)
+```
+
+## Acknowledgements
+
+This project would not exist without the pioneering work of the [Codex plugin for Claude Code](https://github.com/openai/codex-plugin-cc) by OpenAI. Their plugin architecture — commands, agents, skills, and companion scripts — provided the blueprint that made multi-model delegation in Claude Code practical. We are grateful for their contribution to the open-source ecosystem.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](./LICENSE).
-
-- `plugins/codex/` — Copyright 2026 OpenAI
-- `plugins/cn/` — Copyright 2026 LeoLin990405
+[Apache License 2.0](./LICENSE)

@@ -1,25 +1,16 @@
 {
-  "name": "leo-cc-plugins",
+  "name": "cn-cc",
   "owner": {
     "name": "LeoLin990405"
   },
   "metadata": {
-    "description": "Multi-model plugin marketplace for Claude Code — Codex (GPT-5.4) + CN Models (Kimi, Qwen, GLM, Doubao, StepFun, MiniMax).",
-    "version": "1.1.0"
+    "description": "Route tasks from Claude Code to Chinese AI model backends — Kimi, Qwen, GLM, Doubao, StepFun, MiniMax.",
+    "version": "1.0.0"
   },
   "plugins": [
     {
-      "name": "codex",
-      "description": "Use Codex from Claude Code to review code or delegate tasks.",
-      "version": "1.0.3",
-      "author": {
-        "name": "OpenAI"
-      },
-      "source": "./plugins/codex"
-    },
-    {
       "name": "cn",
-      "description": "Route tasks to Chinese AI model backends (Kimi, Qwen, GLM, Doubao, StepFun, MiniMax) from Claude Code.",
+      "description": "Route tasks to Chinese AI model backends from Claude Code.",
       "version": "1.0.0",
       "author": {
         "name": "LeoLin990405"
