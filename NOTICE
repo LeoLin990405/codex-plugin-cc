@@ -1,4 +1,9 @@
 Copyright 2026 OpenAI
+  - plugins/codex/ — Original Codex plugin for Claude Code
+  - scripts/, tests/, tsconfig.app-server.json — Original build and test infrastructure
+
+Copyright 2026 LeoLin990405
+  - plugins/cn/ — CN Models plugin for Chinese AI model backend routing
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
